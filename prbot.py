@@ -59,7 +59,7 @@ def poll(repo, pr_msg, issue_msg, status, username):
         if issue.number <= threshold:
             print(" => Lower than threshold ({}), breaking".format(threshold))
             break
-        comment = pr_msg.render(username=issue.user.login)
+        comment = issue_msg.render(username=issue.user.login)
         try:
             # Double check that we haven't posted on this before...
             existing_comments = issue.get_comments()
