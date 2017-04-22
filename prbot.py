@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # PRBot - monitor a GitHub repository for new pull requests and post a comment
 # Copyright (C) 2016-2017 Andrew Donnellan <andrew@donnellan.id.au>
@@ -29,7 +29,7 @@ def poll(repo, pr_msg, issue_msg, status, username):
 
     print("Doing Pull Requests...")
 
-    for pull in reversed(list(pulls)): # FIXME: Do this without converting whole thing to list
+    for pull in reversed(list(pulls)):
         print("Pull request #{} by @{}: {}".format(pull.number, pull.user.login, pull.title))
         if pull.number <= threshold:
             print(" => Lower than threshold ({}), breaking".format(threshold))
@@ -54,7 +54,7 @@ def poll(repo, pr_msg, issue_msg, status, username):
 
     print("Doing Issues...")
 
-    for issue in reversed(list(issues)):
+    for issue in list(issues):
         print("Issue #{} by @{}: {}".format(issue.number, issue.user.login, issue.title))
         if issue.number <= threshold:
             print(" => Lower than threshold ({}), breaking".format(threshold))
