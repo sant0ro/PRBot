@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 # PRBot - monitor a GitHub repository for new pull requests and post a comment
 # Copyright (C) 2016-2017 Andrew Donnellan <andrew@donnellan.id.au>
@@ -21,17 +21,20 @@ import traceback
 import json
 import github
 import jinja2
-from settings import GITHUB_TOKEN, MESSAGE_PATH, STATUS_FILE, REPO_NAME
+from settings import GITHUB_TOKEN, PR_FILE, ISSUES_FILE, STATUS_FILE, REPO_NAME
 
-def poll(repo, msg, status, username):
+def poll(repo, pr_msg, issue_msg, status, username):
     pulls = repo.get_pulls(sort='created')
     threshold = status['pull_req_number']
+
+    print("Doing Pull Requests...")
+
     for pull in reversed(list(pulls)): # FIXME: Do this without converting whole thing to list
         print("Pull request #{} by @{}: {}".format(pull.number, pull.user.login, pull.title))
         if pull.number <= threshold:
             print(" => Lower than threshold ({}), breaking".format(threshold))
             break
-        comment = msg.render(username=pull.user.login)
+        comment = pr_msg.render(username=pull.user.login)
         try:
             # Double check that we haven't posted on this before...
             existing_comments = pull.get_issue_comments()
@@ -46,19 +49,51 @@ def poll(repo, msg, status, username):
             print(" => Error occurred when posting comment")
             print("\n".join([" =>  " + line for line in traceback.format_exc().splitlines()]))
 
+    issues = repo.get_issues(sort='created')
+    threshold = status['issue_number']
+
+    print("Doing Issues...")
+
+    for issue in reversed(list(issues)):
+        print("Issue #{} by @{}: {}".format(issue.number, issue.user.login, issue.title))
+        if issue.number <= threshold:
+            print(" => Lower than threshold ({}), breaking".format(threshold))
+            break
+        comment = pr_msg.render(username=issue.user.login)
+        try:
+            # Double check that we haven't posted on this before...
+            existing_comments = issue.get_comments()
+            if any([comment.user.login == username for comment in existing_comments]):
+                print(" => Existing comment detected. Skipping...")
+                continue
+
+            issue.create_comment(comment)
+            status['issue_number'] = max(status['issue_number'], issue.number)
+            print(" => Comment posted successfully")
+        except:
+            print(" => Error occurred when posting comment")
+            print("\n".join([" =>  " + line for line in traceback.format_exc().splitlines()]))
+
 def main():
+    # Fix for Python 2
+    try:
+        FileNotFoundError
+    except NameError:
+        FileNotFoundError = IOError
     try:
         status = json.load(open(STATUS_FILE))
     except FileNotFoundError:
-        status = {'pull_req_number': 0}
+        status = {'pull_req_number': 0, 'issue_number': 0}
 
-    msg = jinja2.Template(open(MESSAGE_PATH).read())
+    pr_msg = jinja2.Template(open(PR_FILE).read())
+    issue_msg = jinja2.Template(open(ISSUES_FILE).read())
     gh = github.MainClass.Github(GITHUB_TOKEN)
     repo = gh.get_repo(REPO_NAME)
     username = gh.get_user().login
+
     print("Bot is posting as user: {}".format(username))
 
-    poll(repo, msg, status, username)
+    poll(repo, pr_msg, issue_msg, status, username)
     json.dump(status, open(STATUS_FILE, 'w'))
 
 if __name__ == '__main__':
